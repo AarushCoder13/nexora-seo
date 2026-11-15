@@ -7,7 +7,7 @@
     "server": "node server/index.js",
     "client": "npm run dev --prefix client",
     "postinstall": "cd client && npm install",
-    "build": "cd client && npm install && npm run build",
+    "build": "vite build",
     "start": "node server/index.js",
     "dev": "concurrently \"npm run server\" \"npm run client\""
   },
@@ -27,7 +27,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "lucide-react": "^1.16.0",
     "node-cron": "^3.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "uuid": "^11.0.3"
   },
   "devDependencies": {
