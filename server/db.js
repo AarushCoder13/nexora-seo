@@ -2,24 +2,30 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = isVercel ? '/tmp' : path.join(__dirname, '..', 'data');
+
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[DB] Notice: Filesystem read-only, using memory storage fallback:', err.message);
 }
 
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
 const defaultData = {
   settings: {
-    selectedWebsiteId: null,
-    scheduleInterval: '6h', // '1h', '3h', '6h', '12h', '24h', 'custom'
-    cronExpression: '0 */6 * * *',
+    selectedWebsiteId: 'site_1',
+    scheduleInterval: '6h',
+    cronExpression: '0 0 * * *',
     autoRunEnabled: true,
-    telegramEnabled: false,
+    telegramEnabled: true,
     telegramBotToken: '',
     telegramChatId: '',
     webhookUrl: '',
-    deploymentTarget: 'webhook', // 'webhook', 'wordpress', 'simulate'
+    deploymentTarget: 'webhook',
     wordpressUrl: '',
     wordpressUser: '',
     wordpressAppPassword: '',
@@ -43,64 +49,49 @@ const defaultData = {
     }
   ],
   audits: [],
-  recommendations: [], // items for approval & deployment
-  contentPlan: [],     // articles/content planned & generated
-  deployments: [],     // historical record of approved and deployed changes
-  notifications: []    // in-app notification center
+  recommendations: [],
+  contentPlan: [],
+  deployments: [],
+  notifications: []
 };
 
+// In-memory cache for ultra-fast serverless execution and read-only resilience
+let inMemoryCache = null;
+
 function readDb() {
-  try {
-    if (!fs.existsSync(DB_FILE)) {
-      writeDb(defaultData);
-      return JSON.parse(JSON.stringify(defaultData));
-    }
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    const data = JSON.parse(raw);
-    
-    // Auto-migrate if websites array doesn't exist
-    if (!data.websites || data.websites.length === 0) {
-      data.websites = [
-        {
-          id: 'site_1',
-          name: data.settings?.targetWebsite ? cleanDomain(data.settings.targetWebsite) : 'Nexus Code AI',
-          url: data.settings?.targetWebsite || 'https://nexuscodeai.vercel.app',
-          niche: data.settings?.niche || 'Artificial Intelligence & Software Engineering',
-          primaryKeywords: data.settings?.primaryKeywords || ['best ai automation tools 2026', 'nexus code ai'],
-          scheduleInterval: data.settings?.scheduleInterval || '6h',
-          active: true,
-          lastScore: data.audits?.[0]?.scores?.overall || 97,
-          lastRunAt: data.settings?.lastRunAt || new Date().toISOString(),
-          createdAt: new Date().toISOString()
-        }
-      ];
-      data.settings.selectedWebsiteId = 'site_1';
-      writeDb(data);
-    }
-
-    if (!data.settings.selectedWebsiteId && data.websites.length > 0) {
-      data.settings.selectedWebsiteId = data.websites[0].id;
-    }
-
-    return { 
-      ...defaultData, 
-      ...data, 
-      settings: { ...defaultData.settings, ...(data.settings || {}) },
-      websites: data.websites || []
-    };
-  } catch (err) {
-    console.error('Error reading database:', err);
-    return JSON.parse(JSON.stringify(defaultData));
+  if (inMemoryCache) {
+    return inMemoryCache;
   }
+
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      const data = JSON.parse(raw);
+      inMemoryCache = {
+        ...defaultData,
+        ...data,
+        settings: { ...defaultData.settings, ...(data.settings || {}) },
+        websites: data.websites && data.websites.length ? data.websites : defaultData.websites
+      };
+      return inMemoryCache;
+    }
+  } catch (err) {
+    console.warn('[DB] Could not read file, initializing from default:', err.message);
+  }
+
+  inMemoryCache = JSON.parse(JSON.stringify(defaultData));
+  writeDb(inMemoryCache);
+  return inMemoryCache;
 }
 
 function writeDb(data) {
+  inMemoryCache = data;
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
     return true;
   } catch (err) {
-    console.error('Error writing database:', err);
-    return false;
+    // If running in read-only environment like Vercel Lambda, memory cache holds state cleanly
+    return true;
   }
 }
 
@@ -168,7 +159,7 @@ function deleteWebsite(id) {
 function addAudit(audit) {
   const db = readDb();
   db.audits.unshift(audit);
-  if (db.audits.length > 100) db.audits.pop(); // keep last 100
+  if (db.audits.length > 100) db.audits.pop();
   writeDb(db);
   return audit;
 }

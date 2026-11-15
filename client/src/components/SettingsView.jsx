@@ -84,7 +84,12 @@ export function SettingsView({ settings, onSaveSettings }) {
           chatId: formData.telegramChatId
         })
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
       if (data.success) {
         setTestStatus({ success: true, message: '✅ Test alert delivered! Check your Telegram app.' });
       } else {
@@ -107,7 +112,12 @@ export function SettingsView({ settings, onSaveSettings }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhookUrl: formData.webhookUrl })
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
       if (data.success) {
         setWebhookTestStatus({ success: true, message: '✅ Webhook triggered successfully!' });
       } else {

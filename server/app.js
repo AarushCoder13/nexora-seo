@@ -317,7 +317,10 @@ app.all('/api/telegram/webhook', async (req, res) => {
   } catch (err) {
     console.warn('Telegram webhook error:', err.message);
   }
-  res.status(200).send('OK');
+// Global JSON error handler
+app.use((err, req, res, next) => {
+  console.error('[API Error]', err);
+  res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
 module.exports = app;
