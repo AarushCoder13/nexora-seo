@@ -13,6 +13,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Normalize URL for Vercel Serverless Function rewrites
+app.use((req, res, next) => {
+  if (req.url && !req.url.startsWith('/api') && !req.url.startsWith('/assets')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
+
 // 1. Status & Health
 app.get('/api/status', (req, res) => {
   const database = db.readDb();
@@ -287,15 +295,19 @@ app.post('/api/notifications/mark-read', (req, res) => {
 
 // 10. Telegram & Webhook Verification Endpoints
 app.post('/api/telegram/test', async (req, res) => {
-  const { token, chatId } = req.body || {};
-  const msg = `
+  try {
+    const { token, chatId } = req.body || {};
+    const msg = `
 🤖 <b>RankPulse 24/7 SEO Autopilot Test Alert</b>
 ━━━━━━━━━━━━━━━━━━
 ✅ <b>Connection Successful!</b>
 Your Telegram bot is properly connected. You will now receive automatic SEO audit reports every 6 hours across all your registered websites!
 `;
-  const result = await sendTelegramMessage(token, chatId, msg);
-  res.json(result);
+    const result = await sendTelegramMessage(token, chatId, msg);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/webhook/test', async (req, res) => {
