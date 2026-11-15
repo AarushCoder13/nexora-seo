@@ -1,0 +1,17 @@
+name: 24/7 SEO Autopilot 6-Hour Runner
+
+on:
+  schedule:
+    # Runs every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-seo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger SEO Audit Cycle
+        run: |
+          echo "Running scheduled 6-hour SEO audit cycle..."
+          # Replace with your deployed Vercel domain if desired
+          # curl -s -X POST https://your-vercel-domain.vercel.app/api/audit/trigger || true
