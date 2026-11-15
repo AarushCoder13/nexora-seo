@@ -1,0 +1,12 @@
+node_modules/
+client/node_modules/
+dist/
+client/dist/
+data/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
